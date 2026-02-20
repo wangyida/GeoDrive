@@ -18,8 +18,135 @@ Abstract: Recent advancements in world models have revolutionized dynamic enviro
 ## TODO List
 
 - **[2025-05-30]** ✅ Release [paper](https://arxiv.org/abs/2505.22421)
-- [ ] Release inference code
-- [ ] Release model checkpoints
+- **[2026-02-20]** ✅ Release inference code
+- **[2026-02-20]** ✅ Release model checkpoints
+
+## Getting Started
+
+<summary><b>Environment Requirement</b></summary>
+
+We recommend first use `conda` to create virtual environment, and install needed libraries.
+
+```bash
+conda create -n geodrive python=3.10 -y
+conda activate geodrive
+pip install -r requirements.txt
+```
+
+Then, install custom diffusers with:
+
+```bash
+cd ./diffusers
+pip install -e .
+```
+
+Next, install required ffmpeg:
+
+```bash
+conda install -c conda-forge ffmpeg -y
+```
+
+<summary><b>Data Preparation</b></summary>
+
+
+We use processed data from NuScenes. Please follow instruction from another folder 'monst3r' to prepare the data. 
+
+
+## 🏃🏼 Running Scripts
+
+<summary><b>Training</b></summary>
+
+Train the GeoDrive using the script:
+
+```bash
+export MODEL_PATH="THUDM/CogVideoX-5b-I2V"
+export CACHE_PATH="~/.cache"
+export CONDITION_DATASET_PATH="PATH/TO/CONDITION_TRAIN"
+export VIDEO_DATASET_PATH="PATH/TO/NUSCENES"
+export VAL_CONDITION_DATASET_PATH=""PATH/TO/CONDITION_VAL"
+export PROJECT_NAME="GeoDrive"
+export RUNS_NAME="GeoDrive"
+export OUTPUT_PATH="./${PROJECT_NAME}/${RUNS_NAME}"
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export TOKENIZERS_PARALLELISM=false
+export ACCELERATE_LAUNCH_WAIT_TIMEOUT=300
+export DS_SKIP_CUDA_CHECK=1
+
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0,1,2,3,4,5,6,7}
+
+torchrun --nproc_per_node=8 --nnodes=1 --node_rank=0 --master_addr=10086 --master_port=$MASTER_PORT \
+  train.py \
+  --pretrained_model_name_or_path $MODEL_PATH \
+  --cache_dir $CACHE_PATH \
+  --meta_file_path PATH/TO/META_TRAIN \
+  --val_meta_file_path PATH/TO/META_VAL \
+  --video_data_root $VIDEO_DATASET_PATH \
+  --condition_data_root $CONDITION_DATASET_PATH \
+  --val_condition_data_root $VAL_CONDITION_DATASET_PATH \
+  --dataloader_num_workers 1 \
+  --num_validation_videos 1 \
+  --validation_epochs 2 \
+  --seed 42 \
+  --mixed_precision bf16 \
+  --output_dir $OUTPUT_PATH \
+  --height 480 \
+  --width 720 \
+  --fps 10 \
+  --video_reshape_mode "center" \
+  --branch_layer_num 2 \
+  --train_batch_size 1 \
+  --num_train_epochs 20 \
+  --checkpointing_steps 2000 \
+  --validating_steps 1000 \
+  --gradient_accumulation_steps 1 \
+  --learning_rate 1e-5 \
+  --lr_scheduler cosine_with_restarts \
+  --lr_warmup_steps 1000 \
+  --lr_num_cycles 1 \
+  --enable_slicing \
+  --enable_tiling \
+  --noised_image_dropout 0.05 \
+  --gradient_checkpointing \
+  --optimizer AdamW \
+  --adam_beta1 0.9 \
+  --adam_beta2 0.95 \
+  --max_grad_norm 1.0 \
+  --allow_tf32 \
+  --report_to wandb \
+  --tracker_name $PROJECT_NAME \
+  --runs_name $RUNS_NAME \
+  --mix_train_ratio 0 \
+  --first_frame_gt 
+
+```
+
+<summary><b>Inference</b></summary>
+
+You can run inference with the script:
+
+```bash
+cd infer
+
+pretrained_model_name_or_path="THUDM/CogVideoX-5b-I2V"
+checkpoint_path="PATH/TO/CKPT"
+meta_file_path="PATH/TO/META"
+condition_data_root="PATH/TO/CONDITION"
+video_data_root="PATH/TO/NUSCENES"
+
+python run_validation.py \
+--checkpoint_path $checkpoint_path \
+--pretrained_model_name_or_path $pretrained_model_name_or_path \
+--meta_file_path $meta_file_path \
+--condition_data_root $condition_data_root \
+--video_data_root $video_data_root \
+--output_dir /PATH/TO/OUTPUT \
+--height 480 \
+--width 720 \
+--max_num_frames 49 \
+--mixed_precision bf16 \
+--target_frames 25 \
+
+```
 
 
 ## Citation
